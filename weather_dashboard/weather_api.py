@@ -110,5 +110,13 @@ class WeatherAPI(object):
             )
 
     def update(self, lat: Optional[float] = None, lon: Optional[float] = None) -> None:
-        self._get_data(lat, lon)
+        if lat is not None and lon is not None:
+            self.lat = lat
+            self.lon = lon
+            self._get_data(self.lat, self.lon)
+        elif self.lat is not None and self.lon is not None:
+            self._get_data(self.lat, self.lon)
+        else:
+            self._get_data()
+
         self._parse_data()

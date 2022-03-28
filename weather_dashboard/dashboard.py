@@ -1,4 +1,4 @@
-from dash import Dash, dcc, html, Input, Output
+from dash import Dash, dcc, html
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.graph_objs._figure import Figure
@@ -6,6 +6,8 @@ import pandas as pd
 from weather_api import WeatherAPI
 from utils import list_weather_data_to_df
 import json
+import dash_leaflet as dl
+from dash.dependencies import Input, Output, State
 
 NAMETABLE = {
     "temp": "Temperatur",
@@ -36,47 +38,26 @@ def generate_figure(data: pd.DataFrame, fields: list[str], layout: dict, typ: st
     return fig
 
 
-def get_map():
-
-    with open("./weather_dashboard/Austria.json", "r") as f:
-        geo = json.load(f)
-
-    bezirke = [i["properties"]["name"] for i in geo["features"]]
-
-    fig = go.Figure(
-        go.Scattergeo(
-            locations=bezirke,
-            geojson=geo,
-            featureidkey="properties.name",
-        )
-    )
-    fig.update_geos(
-        resolution=50,
-        showcoastlines=True,
-        coastlinecolor="RebeccaPurple",
-        showland=True,
-        landcolor="LightGreen",
-        showocean=True,
-        oceancolor="LightBlue",
-        showcountries=True,
-        countrycolor="RebeccaPurple",
-        scope="europe",
-    )
-
-    return fig
-
-
-get_map()
+lat = 48
+lon = 13
 
 
 def run_dboard():
 
+    url = "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
+    attribution = '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> '
     w = WeatherAPI()
     app = Dash(__name__)
     app.layout = html.Div(
         [
             html.H1(children="Wetterdashboard"),
-            dcc.Graph(id="map", figure=get_map()),
+            dl.Map(
+                [dl.TileLayer(url=url, attribution=attribution), dl.LayerGroup(id="layer")],
+                id="map",
+                style={"width": "100%", "height": "50vh", "margin": "auto", "display": "block"},
+                center=[48.1, 13.14],
+                zoom=10,
+            ),
             dcc.Dropdown(
                 options=DROPDOWN1,
                 value=["Temperatur"],
@@ -92,15 +73,32 @@ def run_dboard():
     )
 
     @app.callback(
+        Output("layer", "children"),
+        [Input("map", "click_lat_lng")],
+    )
+    def map_click(click_lat_lng):
+
+        if click_lat_lng is not None:
+            global lat
+            lat = click_lat_lng[0]
+            global lon
+            lon = click_lat_lng[1]
+            return [
+                dl.Marker(position=click_lat_lng, children=dl.Tooltip("({:.3f}, {:.3f})".format(*click_lat_lng))),
+            ]
+        return "-"
+
+    @app.callback(
         Output("hourly_weather_line", "figure"),
         Output("daily_weather_line", "figure"),
         Output("hourly_weather_bar", "figure"),
         Output("daily_weather_bar", "figure"),
         Input("xaxis-column", "value"),
+        [Input("map", "click_lat_lng")],
     )
-    def update_plots(fieldnames: list):
+    def update_plots(fieldnames: list, _):
 
-        w.update()
+        w.update(lat, lon)
         hourly_weather = list_weather_data_to_df(w.hourly_forecast)
         daily_weather = list_weather_data_to_df(w.daily_forecast)
         fieldname = fieldnames
