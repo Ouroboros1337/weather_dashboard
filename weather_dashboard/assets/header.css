@@ -1,0 +1,15 @@
+body {
+    color: rgb(250, 250,250);
+    background-color: rgb(26,25,25);}
+
+.Select-control {
+    background-color: rgb(26, 25, 25) !important;
+    }
+      
+.Select-menu-outer {
+    background-color: rgb(26, 25, 25);
+    }
+
+.Select-value-label {
+    color: white !important;
+}
